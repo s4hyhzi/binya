@@ -1,12 +1,15 @@
 import { login, logout, getInfo } from '@/api/user'
-import { getToken, setToken, removeToken } from '@/utils/auth'
+import { getToken, setToken, removeToken, getUserName, getTenId, setTenId, setUserName } from '@/utils/auth'
 import { resetRouter } from '@/router'
+import { data } from 'autoprefixer'
 
 const getDefaultState = () => {
   return {
     token: getToken(),
     name: '',
-    avatar: ''
+    avatar: '',
+    userName: getUserName(),
+    tenId: Number(getTenId())
   }
 }
 
@@ -24,19 +27,32 @@ const mutations = {
   },
   SET_AVATAR: (state, avatar) => {
     state.avatar = avatar
+  },
+  SET_USERNAME: (state, userName) => {
+    state.userName = userName
+  },
+  SET_TENID: (state, tenId) => {
+    state.tenId = tenId
   }
 }
 
 const actions = {
+  setTenId({ commit }, tenId) {
+    console.log(tenId)
+    commit('SET_TENID', tenId)
+  },
+  setUserName({ commit }, userName) {
+    console.log(userName)
+    commit('SET_USERNAME', userName)
+  },
   // user login
   login({ commit }, userInfo) {
-    const { username, password } = userInfo
+    const { username, password, captcha, checkKey, remember_me } = userInfo
     return new Promise((resolve, reject) => {
-      login({ username: username.trim(), password: password }).then(response => {
-        const { data } = response
-        commit('SET_TOKEN', data.token)
-        setToken(data.token)
-        resolve()
+      login({ username: username.trim(), password: password, captcha: captcha, checkKey: checkKey, remember_me, remember_me }).then(response => {
+        commit('SET_TOKEN', response.token)
+        setToken(response.token)
+        resolve(response)
       }).catch(error => {
         reject(error)
       })
@@ -44,19 +60,19 @@ const actions = {
   },
 
   // get user info
-  getInfo({ commit, state }) {
+  getInfo({ commit }) {
     return new Promise((resolve, reject) => {
-      getInfo(state.token).then(response => {
-        const { data } = response
-
+      const { tenId, userName } = state
+      console.log(tenId)
+      getInfo({ loginTenId: tenId, username: userName }).then(res => {
         if (!data) {
           return reject('Verification failed, please Login again.')
         }
-
-        const { name, avatar } = data
-
-        commit('SET_NAME', name)
-        commit('SET_AVATAR', avatar)
+        const { username, tenId } = res.userInfo
+        commit('SET_USERNAME', username)
+        commit('SET_TENID', tenId)
+        setTenId(tenId)
+        setUserName(username)
         resolve(data)
       }).catch(error => {
         reject(error)

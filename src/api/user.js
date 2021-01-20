@@ -2,17 +2,17 @@ import request from '@/utils/request'
 
 export function login(data) {
   return request({
-    url: '/vue-admin-template/user/login',
+    url: '/sys/login',
     method: 'post',
     data
   })
 }
 
-export function getInfo(token) {
+export function getInfo(params) {
   return request({
-    url: '/vue-admin-template/user/info',
-    method: 'get',
-    params: { token }
+    url: '/sys/selectTenant',
+    method: 'put',
+    data: params
   })
 }
 
@@ -23,8 +23,7 @@ export function logout() {
   })
 }
 
-export function code() {
-  const currdatetime = new Date().getTime();
+export function code(currdatetime) {
   return request({
     url: `sys/randomImage/${currdatetime}`,
     method: 'get'

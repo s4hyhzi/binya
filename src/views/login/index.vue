@@ -1,11 +1,51 @@
 <template>
   <div class="login-container">
+    <el-dialog
+      :visible.sync="dialogVisible"
+      width="30%"
+      :show-close="false"
+      :close-on-click-modal="false"
+    >
+      <i
+        class="el-icon-office-building"
+        style="
+          font-size: 1.2em;
+          background-color: rgb(135, 208, 104);
+          width: 30px;
+          height: 30px;
+          line-height: 30px;
+          text-align: center;
+          border-radius: 50%;
+          color: #fff;
+        "
+      ></i>
+      <el-select
+        style="margin-left: 10px; width: 250px"
+        v-model="tenantId"
+        placeholder="请选择"
+        size="small"
+      >
+        <el-option
+          v-for="item in tenants"
+          :key="item.id"
+          :label="item.name"
+          :value="item.id"
+        >
+        </el-option>
+      </el-select>
+
+      <span slot="footer" class="dialogFooter">
+        <el-button size="small" type="primary" @click="loginLast"
+          >确 定</el-button
+        >
+      </span>
+    </el-dialog>
+
     <el-form
       ref="loginForm"
       :model="loginForm"
       :rules="loginRules"
       class="login-form"
-      auto-complete="on"
       label-position="left"
     >
       <div class="title-container">
@@ -17,14 +57,14 @@
         >
       </div>
 
-      <el-form-item style="margin: 0 0 30px 0">
+      <el-form-item style="margin: 0 0 30px 0" prop="username">
         <el-input
           prefix-icon="el-icon-user"
           placeholder="账号"
           v-model="loginForm.username"
         ></el-input>
       </el-form-item>
-      <el-form-item>
+      <el-form-item prop="password">
         <el-input
           prefix-icon="el-icon-unlock"
           placeholder="密码"
@@ -32,20 +72,34 @@
           type="password"
         ></el-input>
       </el-form-item>
-      <el-form-item class="code">
+      <el-form-item class="code" prop="captcha">
         <el-input
           class="code_input"
           placeholder="验证码"
           prefix-icon="el-icon-picture-outline-round"
+          v-model="loginForm.captcha"
         ></el-input>
-        <img v-if="captcha" :src="captcha" @click="getCode"/>
-        <img v-if="!captcha" src="../../assets/login/checkcode.png" @click="getCode"/>
+        <img v-if="captcha" :src="captcha" @click="getCode" />
+        <img
+          v-if="!captcha"
+          src="../../assets/login/checkcode.png"
+          @click="getCode"
+        />
       </el-form-item>
       <el-checkbox v-model="loginForm.remember_me" style="margin: 0 0 25px 0">
         记住我
       </el-checkbox>
       <el-form-item>
-        <el-button type="primary">登录</el-button>
+        <el-button v-if="!loading" type="primary" @click="handleLogin"
+          >登录</el-button
+        >
+        <el-button
+          v-if="loading"
+          :loading="true"
+          type="primary"
+          @click="handleLogin"
+          >登录中</el-button
+        >
       </el-form-item>
     </el-form>
   </div>
@@ -53,26 +107,27 @@
 
 <script>
 import { validUsername } from "@/utils/validate";
-import { code } from "@/api/user";
+import { code, login } from "@/api/user";
+import {mapActions, mapGetters} from "vuex"
+const tenants = [
+  {
+    beginDate: null,
+    createBy: null,
+    createTime: null,
+    endDate: null,
+    id: null,
+    name: null,
+    scanCode: null,
+    status: null,
+  },
+];
 
 export default {
   name: "Login",
   data() {
-    const validateUsername = (rule, value, callback) => {
-      if (!validUsername(value)) {
-        callback(new Error("请输入用户名!"));
-      } else {
-        callback();
-      }
-    };
-    const validatePassword = (rule, value, callback) => {
-      if (value.length < 6) {
-        callback(new Error("请输入六位及以上密码!"));
-      } else {
-        callback();
-      }
-    };
     return {
+      dialogVisible: false,
+      tenantId: null,
       loginForm: {
         username: "admin",
         password: "123456",
@@ -84,20 +139,31 @@ export default {
       },
       loginRules: {
         username: [
-          { required: true, trigger: "blur", validator: validateUsername },
+          { required: true, trigger: "blur", message: "用户名不能为空" },
         ],
         password: [
-          { required: true, trigger: "blur", validator: validatePassword },
+          { required: true, trigger: "blur", message: "密码不能为空" },
+        ],
+        captcha: [
+          { required: true, trigger: "blur", message: "验证码不能为空" },
         ],
       },
       loading: false,
       passwordType: "password",
-      redirect: undefined,
       captcha: "",
+      redirect: undefined,
+      tenants: tenants,
     };
   },
   created() {
-    this.getCode()
+    this.getCode();
+    // console.log(...mapActions(['']))
+  },
+  computed:{
+    ...mapActions([
+      // 'setTenId',
+      'user/setUserName'
+    ]),
   },
   watch: {
     $route: {
@@ -108,29 +174,36 @@ export default {
     },
   },
   methods: {
+    ...mapActions({
+      'setTenId':'user/setTenId',
+      'setUserName':'user/setUserName'
+    }),
     getCode() {
-      code().then((res) => {
-        this.captcha=res
+      const currdatetime = new Date().getTime();
+      code(currdatetime).then((res) => {
+        this.captcha = res;
+        this.loginForm.checkKey = currdatetime;
       });
     },
-    showPwd() {
-      if (this.passwordType === "password") {
-        this.passwordType = "";
-      } else {
-        this.passwordType = "password";
+    loginLast() {
+      console.log(this.tenantId, this.loginForm.username);
+      this.setTenId(this.tenantId)
+      this.setUserName(this.loginForm.username)
+      if (this.tenantId) {
+        this.$router.push({ path: this.redirect || "/" });
       }
-      this.$nextTick(() => {
-        this.$refs.password.focus();
-      });
     },
     handleLogin() {
+      // console.log(this.loginForm)
       this.$refs.loginForm.validate((valid) => {
         if (valid) {
           this.loading = true;
           this.$store
             .dispatch("user/login", this.loginForm)
-            .then(() => {
-              this.$router.push({ path: this.redirect || "/" });
+            .then((res) => {
+              console.log(res);
+              this.dialogVisible = true;
+              this.tenants = res.tenants;
               this.loading = false;
             })
             .catch(() => {
@@ -165,7 +238,7 @@ $cursor: rgba(0, 0, 0, 0.8);
   margin-top: 10px;
   .el-input {
     display: inline-block;
-    height: 30px;
+    height: 40px;
     width: 100%;
   }
   .el-button {
@@ -177,7 +250,6 @@ $cursor: rgba(0, 0, 0, 0.8);
   }
   img {
     margin-left: 10px;
-    margin-top: 10px;
   }
   .el-form-item__content {
     line-height: 36px;
@@ -202,6 +274,11 @@ $backgroundImage: "../../assets/login/background.svg";
   background: #f0f2f5 url($backgroundImage) no-repeat 50%;
   overflow: hidden;
   margin: 0;
+  .el-dialog {
+    .el-button {
+      width: 20%;
+    }
+  }
 
   .login-form {
     position: relative;
@@ -210,6 +287,15 @@ $backgroundImage: "../../assets/login/background.svg";
     padding: 160px 35px 0;
     margin: 0 auto;
     overflow: hidden;
+    .el-form-item__error {
+      color: #f56c6c;
+      font-size: 12px;
+      line-height: 1;
+      padding-top: 14px;
+      position: absolute;
+      top: 100%;
+      left: 0;
+    }
   }
 
   .tips {
